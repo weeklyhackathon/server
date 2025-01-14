@@ -1,0 +1,63 @@
+#root {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 2rem;
+  text-align: center;
+}
+
+.logo {
+  height: 6em;
+  padding: 1.5em;
+  will-change: filter;
+  transition: filter 300ms;
+}
+.logo:hover {
+  filter: drop-shadow(0 0 2em #646cffaa);
+}
+.logo.react:hover {
+  filter: drop-shadow(0 0 2em #61dafbaa);
+}
+
+@keyframes logo-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  a:nth-of-type(2) .logo {
+    animation: logo-spin infinite 20s linear;
+  }
+}
+
+.card {
+  padding: 2em;
+}
+
+.read-the-docs {
+  color: #888;
+}
+
+.chat-mangler {
+  display: flex;
+  flex-direction: column; /* Ensures horizontal stacking */
+  align-items: flex-start; /* Aligns items to the top */
+  justify-content: center; /* Centers the item horizontally */
+  height: 800px; /* Full height to demonstrate alignment */
+  width: 100%
+}
+
+.str-chat__message-input {
+  /* Additional styling for the message input */
+  width: 100%; /* Full width of the container */
+  max-width: 600px; /* Optional: Limit the maximum width */
+  margin: auto; /* Center the element horizontally */
+  align-self: flex-end; /* Aligns the element to the bottom of the container */
+}
+
+.str-chat {
+  width: 800px
+}
