@@ -4,13 +4,13 @@ import {
   Chat,
   Channel,
   MessageList,
-  MessageInput,
-  useCreateChatClient,
+  MessageInput
 } from "stream-chat-react";
 import "stream-chat-react/dist/css/v2/index.css";
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import './App.css';
 import { useStore } from './store/useStore';
+import { DefaultGenerics, StreamChat, type Channel as StreamChannel } from "stream-chat";
 
 
 interface LoginResponse {
@@ -30,32 +30,18 @@ const optimismConfig = {
   siweUri: window.location.origin + '/api/login',
 };
 
+const apiKey = import.meta.env.VITE_GETSTREAM_API_KEY;
+
+const chatClient = StreamChat.getInstance(apiKey, {
+  timeout: 6000,
+});
+
 function App() {
-  const apiKey = import.meta.env.VITE_GETSTREAM_API_KEY;
-  // const userId = import.meta.env.VITE_GETSTREAM_USER_ID;
-  // const token = import.meta.env.VITE_GETSTREAM_JWT;
 
   const { name: username, setName: setUsername, jwt: jwt, setJwt: setJwt, pfp: pfp, setPfp: setPfp, displayName, setDisplayName } = useStore();
-  /*
-  const [username, setUsername] = useState<string | null>(null);
-  const [pfp, setPfp] = useState<string | null>(null);
-  const [jwt, setJwt] = useState<string | null>(null);
-  */
-  const [chatClientConfig, setChatClientConfig] = useState<ChatClientConfig | null>(null);
+  const [channel, setChannel] = useState<StreamChannel<DefaultGenerics> | null>(null);
 
-  useEffect(() => {
-    if (username && jwt) {
-      const chatClientConfig = {
-        apiKey,
-        tokenOrProvider: jwt,
-        userData: { id: username, name: displayName || username, image: pfp },
-      };
-
-      setChatClientConfig(chatClientConfig);
-    }
-  }, [jwt]);
-
-  const login = async (nonce: string, message: string, signature: string, fid: number, username: string) => {
+  const nativeLogin = async (nonce: string, message: string, signature: string, fid: number, username: string) => {
     const response = await fetch('/api/login', {
       method: 'POST',
       body: JSON.stringify({ fid, username, signature, nonce, message, domain: window.location.host }),
@@ -74,10 +60,14 @@ function App() {
     return null;
   }
 
-  const onSignIn = (data: UseSignInData) => {
+  const onFarcasterSignIn = (data: UseSignInData) => {
     console.log("User signed in: ", data);
+    if (!data.nonce || !data.message || !data.signature || !data.fid || !data.username) {
+      console.error("Invalid sign in data");
+      return;
+    }
 
-    login(data.nonce, data.message as string, data.signature as `0x${string}`, data.fid as number, data.username as string).then((userData) => {
+    nativeLogin(data.nonce, data.message, data.signature, data.fid, data.username).then((userData) => {
 
       if (userData) {
         const { username, pfp, jwt } = userData;
@@ -87,33 +77,37 @@ function App() {
         }
         setPfp(pfp);
         setJwt(jwt);
+
+        const userRequestData: Record<string, string> = {
+          id: username as string,
+          name: (displayName || username) as string,
+        };
+        if (pfp) {
+          userRequestData.image = pfp;
+        }
+
+        chatClient.connectUser(
+          userRequestData as any,
+          jwt,
+        ).then(() => {
+          console.log("User connected, connecting to chat channel");
+          const channel = chatClient.getChannelById("livestream", "messaging", {});
+          setChannel(channel);
+        })
+        .catch((error) => {
+          console.error("Error connecting user: ", error);
+        });
       }
     });
   };
 
-  interface ChatClientConfig {
-    apiKey: string;
-    tokenOrProvider: string;
-    userData: {
-      id: string;
-      name?: string;
-      image?: string;
-    };
-  }
-
-  const StreamWrapper = ({ config }: { config: ChatClientConfig }) => {
-    console.log("StreamWrapper config: ", config);
-    const client = useCreateChatClient(config);
-
-
-    if (!client) {
-      return <div>Loading chat...</div>;
+  const StreamChat = () => {
+    if (!channel) {
+      return null;
     }
 
-    const channel = client.getChannelById("livestream", "messaging", {});
-
     return (
-      <Chat client={client}>
+      <Chat client={chatClient}>
         <h4>{displayName || username}</h4>
         <Channel channel={channel}>
           <div className="chat-mangler">
@@ -125,13 +119,34 @@ function App() {
     );
   };
 
-  return (
-    <AuthKitProvider config={optimismConfig}>
+  if (jwt) {
+    const userData:Record<string, string> = {
+      id: username,
+      name: displayName || username,
+    };
+    if (pfp) {
+      userData.image = pfp;
+    }
+    chatClient.connectUser(
+      userData as any,
+      jwt,
+    ).then(() => {
+      console.log("User connected, connecting to chat channel");
+      const channel = chatClient.getChannelById("livestream", "messaging", {});
+      setChannel(channel);
+    })
+    .catch((error) => {
+      console.error("Error connecting user: ", error);
+    });
+  }
+
+    return (
+      <AuthKitProvider config={optimismConfig}>
       <h1>Weeklyhackathon</h1>
       {pfp && <img src={pfp} alt="Profile picture" />}
-      {chatClientConfig && <StreamWrapper config={chatClientConfig} />}
+      <StreamChat />
       <div>
-      {!jwt && <SignInButton onSuccess={onSignIn} />  /* TODO handle the JWT expiring */ }
+      {!jwt && <SignInButton onSuccess={onFarcasterSignIn} />  /* TODO handle the JWT expiring */ }
       </div>
    </AuthKitProvider>
   );
