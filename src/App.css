@@ -47,7 +47,7 @@
   align-items: flex-start; /* Aligns items to the top */
   justify-content: center; /* Centers the item horizontally */
   height: 800px; /* Full height to demonstrate alignment */
-  width: 100%
+  width: 100%;
 }
 
 .str-chat__message-input {
@@ -59,5 +59,5 @@
 }
 
 .str-chat {
-  width: 800px
+  width: 800px;
 }
