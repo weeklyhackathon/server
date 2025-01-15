@@ -4,7 +4,7 @@ import {
   UseSignInData
 } from '@farcaster/auth-kit';
 import 'stream-chat-react/dist/css/v2/index.css';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import './App.css';
 import { useStore } from './store/useStore';
 import MaybeDisplaySignInButton from './components/MaybeDisplaySignInButton/MaybeDisplaySignInButton';
@@ -13,9 +13,8 @@ import {
   StreamChat,
   type Channel as StreamChannel,
 } from 'stream-chat';
-import {PrivyClientConfig, PrivyProvider} from '@privy-io/react-auth';
+import FramesSDK from '@farcaster/frame-sdk';
 import LivestreamChat from './components/LivestreamChat/LivestreamChat';
-import { base } from 'viem/chains';
 
 interface TokenValidationResponse {
   success: boolean;
@@ -34,16 +33,6 @@ interface LoginResponse {
     powerBadge: boolean;
   };
 }
-
-const privyAppId = import.meta.env.VITE_PRIVY_APP_ID;
-const privyConfig: PrivyClientConfig = {
-  loginMethods: ['wallet'],
-  appearance: {
-    theme: 'light',
-  },
-  supportedChains: [base],
-  defaultChain: base,
-};
 
 const optimismConfig = {
   rpcUrl: 'https://mainnet.optimism.io',
@@ -74,6 +63,18 @@ function App() {
   );
   const [errors, setErrors] = useState<string | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
+
+  type FrameContext = Awaited<typeof FramesSDK.context>;
+
+  const [frameContext, setFrameContext] = useState<FrameContext | null>(null);
+
+  FramesSDK.actions.ready().then(() => FramesSDK.context.then(setFrameContext).catch(() => {}));
+  
+  useEffect(() => {
+    if (frameContext) {
+      console.log('Frame context: ', frameContext);
+    }
+  }, [frameContext]);
 
   const nativeLogin = async (
     nonce: string,
@@ -231,15 +232,13 @@ function App() {
 
   return (
     <AuthKitProvider config={optimismConfig}>
-      <PrivyProvider config={privyConfig} appId={privyAppId}>
       <h1>Weeklyhackathon</h1>
       {errors && <p className="error">{errors}</p>}
       {pfp && <img src={pfp} alt="Profile picture" />}
       <LivestreamChat channel={channel} displayName={displayName} username={username} />
       <div>
-        <MaybeDisplaySignInButton jwt={jwt} isAuthenticated={isAuthenticated} onFarcasterSignIn={onFarcasterSignIn} />
+        <MaybeDisplaySignInButton frameContext={frameContext} jwt={jwt} isAuthenticated={isAuthenticated} onFarcasterSignIn={onFarcasterSignIn} />
       </div>
-      </PrivyProvider>
     </AuthKitProvider>
   );
 }
