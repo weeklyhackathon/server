@@ -14,12 +14,6 @@ export default defineConfig(({ mode }) => {
               changeOrigin: true,
               secure: false,
             },
-            '/socket': {
-              target: 'ws://127.0.0.1:3001',
-              ws: true,
-              rewriteWsOrigin: true,
-              secure: false,
-            },
           }
         : undefined,
     },

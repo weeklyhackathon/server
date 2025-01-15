@@ -11,10 +11,14 @@
     "format": "prettier --write ."
   },
   "dependencies": {
+    "@farcaster/auth-kit": "^0.6.0",
+    "buffer": "^6.0.3",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "stream-chat": "^8.49.0",
-    "stream-chat-react": "^12.8.2"
+    "stream-chat-react": "^12.8.2",
+    "viem": "^2.22.8",
+    "zustand": "^5.0.3"
   },
   "devDependencies": {
     "@eslint/js": "^9.17.0",
