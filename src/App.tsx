@@ -7,13 +7,15 @@ import 'stream-chat-react/dist/css/v2/index.css';
 import { useState } from 'react';
 import './App.css';
 import { useStore } from './store/useStore';
-import MaybeDisplaySignInButton from './components/MaybeDisplaySignInButton/MaybeDisplaySignInButton';
+import MaybeDisplaySignInButton, { PrivyOnCompleteParams} from './components/MaybeDisplaySignInButton/MaybeDisplaySignInButton';
 import {
   DefaultGenerics,
   StreamChat,
   type Channel as StreamChannel,
 } from 'stream-chat';
+import {PrivyClientConfig, PrivyProvider} from '@privy-io/react-auth';
 import LivestreamChat from './components/LivestreamChat/LivestreamChat';
+import { base } from 'viem/chains';
 
 interface TokenValidationResponse {
   success: boolean;
@@ -32,6 +34,16 @@ interface LoginResponse {
     powerBadge: boolean;
   };
 }
+
+const privyAppId = import.meta.env.VITE_PRIVY_APP_ID;
+const privyConfig: PrivyClientConfig = {
+  loginMethods: ['wallet'],
+  appearance: {
+    theme: 'light',
+  },
+  supportedChains: [base],
+  defaultChain: base,
+};
 
 const optimismConfig = {
   rpcUrl: 'https://mainnet.optimism.io',
@@ -115,6 +127,22 @@ function App() {
     clearData();
     setChannel(null);
     setIsAuthenticated(false);
+  };
+
+  const onPrivySignIn = (data: PrivyOnCompleteParams) => {
+    console.log('Privy user signed in: ', data);
+    const wallet = data.user.wallet?.address;
+    if (!wallet) {
+      console.error('No wallet address found');
+      logoutCleanup();
+      return;
+    }
+
+    console.log('Was already authenticated? ', data.wasAlreadyAuthenticated);
+  };
+
+  const onPrivyError = (error: any) => {
+    console.log('Privy login error: ', error);
   };
 
   const onFarcasterSignIn = (data: UseSignInData) => {
@@ -219,13 +247,15 @@ function App() {
 
   return (
     <AuthKitProvider config={optimismConfig}>
+      <PrivyProvider config={privyConfig} appId={privyAppId}>
       <h1>Weeklyhackathon</h1>
       {errors && <p className="error">{errors}</p>}
       {pfp && <img src={pfp} alt="Profile picture" />}
       <LivestreamChat channel={channel} displayName={displayName} username={username} />
       <div>
-        <MaybeDisplaySignInButton jwt={jwt} isAuthenticated={isAuthenticated} callback={onFarcasterSignIn} />
+        <MaybeDisplaySignInButton jwt={jwt} isAuthenticated={isAuthenticated} onFarcasterSignIn={onFarcasterSignIn} onPrivySignIn={onPrivySignIn} onPrivyError={onPrivyError} />
       </div>
+      </PrivyProvider>
     </AuthKitProvider>
   );
 }
