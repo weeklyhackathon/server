@@ -1,19 +1,24 @@
 import '@farcaster/auth-kit/styles.css';
 import {
   AuthKitProvider,
-  UseSignInData,
-  SignInButton,
+  UseSignInData
 } from '@farcaster/auth-kit';
-import { Chat, Channel, MessageList, MessageInput } from 'stream-chat-react';
 import 'stream-chat-react/dist/css/v2/index.css';
 import { useState } from 'react';
 import './App.css';
 import { useStore } from './store/useStore';
+import MaybeDisplaySignInButton from './components/MaybeDisplaySignInButton/MaybeDisplaySignInButton';
 import {
   DefaultGenerics,
   StreamChat,
   type Channel as StreamChannel,
 } from 'stream-chat';
+import LivestreamChat from './components/LivestreamChat/LivestreamChat';
+
+interface TokenValidationResponse {
+  success: boolean;
+  message: string;
+}
 
 interface LoginResponse {
   success: boolean;
@@ -93,6 +98,19 @@ function App() {
     return data.message;
   };
 
+  const isJwtValid = async (jwt: string) => {
+    const response = await fetch('/api/revalidate', {
+      method: 'POST',
+      body: JSON.stringify({ jwt }),
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+      },
+    });
+    const data = await response.json() as TokenValidationResponse;
+    return data.success;
+  };
+
   const logoutCleanup = () => {
     clearData();
     setChannel(null);
@@ -164,55 +182,39 @@ function App() {
     });
   };
 
-  const LivestreamChat = () => {
-    if (!channel) {
-      return null;
-    }
+  // If they just came back and we have a JWT, connect them to the chat channel without wallet or farcaster login
+  if (jwt && !channel) {
+    isJwtValid(jwt).then((isValid) => {
+      if (isValid) {
+        const userData: Record<string, string> = {
+          id: username,
+          name: displayName || username,
+        };
+        if (pfp) {
+          userData.image = pfp;
+        }
+        chatClient
+          .connectUser(userData as any, jwt)
+          .then(() => {
+            console.log('User connected, connecting to chat channel');
+            const channel = chatClient.getChannelById(
+              'livestream',
+              'messaging',
+              {}
+            );
+            setChannel(channel);
+            setIsAuthenticated(true);
+          })
+          .catch((error) => {
+            console.error('Error connecting user: ', error);
+            logoutCleanup();
+            setErrors(error.message);
+          });
+      } else {
+        logoutCleanup();
+      }
 
-    return (
-      <Chat client={chatClient}>
-        <h4>{displayName || username}</h4>
-        <Channel channel={channel}>
-          <div className="chat-mangler">
-            <MessageList />
-            <MessageInput />
-          </div>
-        </Channel>
-      </Chat>
-    );
-  };
-
-  const MaybeDisplaySignInButton = () => {
-    if (jwt || isAuthenticated) {
-      return null;
-    }
-    return <SignInButton onSuccess={onFarcasterSignIn} />;
-  };
-
-  if (jwt) {
-    const userData: Record<string, string> = {
-      id: username,
-      name: displayName || username,
-    };
-    if (pfp) {
-      userData.image = pfp;
-    }
-    chatClient
-      .connectUser(userData as any, jwt)
-      .then(() => {
-        console.log('User connected, connecting to chat channel');
-        const channel = chatClient.getChannelById(
-          'livestream',
-          'messaging',
-          {}
-        );
-        setChannel(channel);
-        setIsAuthenticated(true);
-      })
-      .catch((error) => {
-        console.error('Error connecting user: ', error);
-        setErrors(error.message);
-      });
+    });
   }
 
   return (
@@ -220,9 +222,9 @@ function App() {
       <h1>Weeklyhackathon</h1>
       {errors && <p className="error">{errors}</p>}
       {pfp && <img src={pfp} alt="Profile picture" />}
-      <LivestreamChat />
+      <LivestreamChat channel={channel} displayName={displayName} username={username} />
       <div>
-        <MaybeDisplaySignInButton />
+        <MaybeDisplaySignInButton jwt={jwt} isAuthenticated={isAuthenticated} callback={onFarcasterSignIn} />
       </div>
     </AuthKitProvider>
   );
