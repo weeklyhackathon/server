@@ -1,11 +1,5 @@
-import '@farcaster/auth-kit/styles.css';
-import {
-  AuthKitProvider,
-  UseSignInData
-} from '@farcaster/auth-kit';
-import 'stream-chat-react/dist/css/v2/index.css';
+import { AuthKitProvider, UseSignInData } from '@farcaster/auth-kit';
 import { useEffect, useState } from 'react';
-import './App.css';
 import { useStore } from './store/useStore';
 import MaybeDisplaySignInButton from './components/MaybeDisplaySignInButton/MaybeDisplaySignInButton';
 import {
@@ -15,6 +9,14 @@ import {
 } from 'stream-chat';
 import FramesSDK from '@farcaster/frame-sdk';
 import LivestreamChat from './components/LivestreamChat/LivestreamChat';
+import LivePeerVideoPlayer, {
+  getPlaybackSource,
+} from './components/LivePeerVideoPlayer';
+
+import '@farcaster/auth-kit/styles.css';
+import 'stream-chat-react/dist/css/v2/index.css';
+import './App.css';
+import { Src } from '@livepeer/react';
 
 interface TokenValidationResponse {
   success: boolean;
@@ -64,17 +66,25 @@ function App() {
   const [errors, setErrors] = useState<string | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
 
+  const [playbackSource, setPlaybackSource] = useState<Src[] | null>(null);
+
   type FrameContext = Awaited<typeof FramesSDK.context>;
 
   const [frameContext, setFrameContext] = useState<FrameContext | null>(null);
 
-  FramesSDK.actions.ready().then(() => FramesSDK.context.then(setFrameContext).catch(() => {}));
-  
+  FramesSDK.actions
+    .ready()
+    .then(() => FramesSDK.context.then(setFrameContext).catch(() => {}));
+
   useEffect(() => {
     if (frameContext) {
       console.log('Frame context: ', frameContext);
     }
   }, [frameContext]);
+
+  useEffect(() => {
+    getPlaybackSource().then(setPlaybackSource);
+  }, []);
 
   const nativeLogin = async (
     nonce: string,
@@ -120,7 +130,7 @@ function App() {
         Accept: 'application/json',
       },
     });
-    const data = await response.json() as TokenValidationResponse;
+    const data = (await response.json()) as TokenValidationResponse;
     return data.success;
   };
 
@@ -196,48 +206,60 @@ function App() {
   };
 
   // If they just came back and we have a JWT, connect them to the chat channel without wallet or farcaster login
-  if (jwt && !channel) {
-    isJwtValid(jwt).then((isValid) => {
-      if (isValid) {
-        const userData: Record<string, string> = {
-          id: username,
-          name: displayName || username,
-        };
-        if (pfp) {
-          userData.image = pfp;
-        }
-        chatClient
-          .connectUser(userData as any, jwt)
-          .then(() => {
-            console.log('User connected, connecting to chat channel');
-            const channel = chatClient.getChannelById(
-              'livestream',
-              'messaging',
-              {}
-            );
-            setChannel(channel);
-            setIsAuthenticated(true);
-          })
-          .catch((error) => {
-            console.error('Error connecting user: ', error);
-            logoutCleanup();
-            setErrors(error.message);
-          });
-      } else {
-        logoutCleanup();
-      }
+  useEffect(() => {
+    if (jwt && !channel) {
+      isJwtValid(jwt).then((isValid) => {
+        if (isValid) {
+          const userData: Record<string, string> = {
+            id: username,
+            name: displayName || username,
+          };
+          if (pfp) {
+            userData.image = pfp;
+          }
 
-    });
-  }
+          chatClient
+            .connectUser(userData as any, jwt)
+            .then(() => {
+              console.log('User connected, connecting to chat channel');
+              const channel = chatClient.getChannelById(
+                'livestream',
+                'messaging',
+                {}
+              );
+              setChannel(channel);
+              setIsAuthenticated(true);
+            })
+            .catch((error) => {
+              console.error('Error connecting user: ', error);
+              logoutCleanup();
+              setErrors(error.message);
+            });
+        } else {
+          logoutCleanup();
+        }
+      });
+    }
+  }, [jwt, channel]);
 
   return (
     <AuthKitProvider config={optimismConfig}>
       <h1>Weeklyhackathon</h1>
+      <LivePeerVideoPlayer src={playbackSource} />
       {errors && <p className="error">{errors}</p>}
       {pfp && <img src={pfp} alt="Profile picture" />}
-      <LivestreamChat channel={channel} displayName={displayName} username={username} />
+      <LivestreamChat
+        channel={channel}
+        displayName={displayName}
+        username={username}
+      />
       <div>
-        <MaybeDisplaySignInButton frameContext={frameContext} jwt={jwt} isAuthenticated={isAuthenticated} onFarcasterSignIn={onFarcasterSignIn} />
+        <MaybeDisplaySignInButton
+          frameContext={frameContext}
+          jwt={jwt}
+          isAuthenticated={isAuthenticated}
+          onFarcasterSignIn={onFarcasterSignIn}
+        />
       </div>
     </AuthKitProvider>
   );

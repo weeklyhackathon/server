@@ -13,9 +13,11 @@
   "dependencies": {
     "@farcaster/auth-kit": "^0.6.0",
     "@farcaster/frame-sdk": "^0.0.26",
+    "@livepeer/react": "^4.2.9",
     "@privy-io/react-auth": "^2.0.1",
     "@vitejs/plugin-basic-ssl": "^1.2.0",
     "buffer": "^6.0.3",
+    "livepeer": "^3.5.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "stream-chat": "^8.49.0",
